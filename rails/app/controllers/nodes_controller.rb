@@ -72,6 +72,14 @@ class NodesController < ApplicationController
     node_action :commit!
   end
 
+  def alive
+    node_action :alive, [true]
+  end
+
+  def available
+    node_action :available, [true]
+  end
+
   # RESTfule POST of the node resource
   def create
     params[:deployment_id] = Deployment.find_key(params[:deployment]).id if params.has_key? :deployment
@@ -135,9 +143,9 @@ class NodesController < ApplicationController
 
   private
 
-  def node_action(meth)
+  def node_action(meth, p=[])
     @node = Node.find_key(params[:id] || params[:name] || params[:node_id])
-    @node.send(meth)
+    @node.send(meth, p)
     render api_show @node
   end
 

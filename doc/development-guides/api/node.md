@@ -15,8 +15,14 @@ When Nodes are created, updated or deleted, roles and jigs are notified so they 
 |GET |	api/v2/nodes/:id/node_roles |	Shows all the roles that the node is using (including their status)|
 | GET  | /api/v2/nodes/[:node_id]/attribs  | List Attribs for a specific node| - | 
 | GET  | /api/v2/nodes/[:node_id]/attribs/[:id]  | Show Attrib (including value) for a specific Node| - | 
-| PUT  | /api/v2/nodes/[:node_id]/commit  | Commit all the noderoles in proposed on a specific node|
 | PUT  | /api/v2/nodes/[:node_id]/attribs/[:id]  | Update Attrib |
+| PUT  | /api/v2/nodes/[:node_id]/commit  | Commit all the noderoles in proposed on a specific node|
+| PUT  | /api/v2/nodes/[:node_id]/debug  | Turn on debug tracking information |
+| PUT  | /api/v2/nodes/[:node_id]/undebug  | Turn off debug tracking information |
+| PUT  | /api/v2/nodes/[:node_id]/redeploy  | - |
+| PUT  | /api/v2/nodes/[:node_id]/alive  | Set the node.alive flag (defaults to true). False = off |
+| PUT  | /api/v2/nodes/[:node_id]/available  | Set the node.available flag (defaults to true).  False = reserved |
+
 
 Details:
 

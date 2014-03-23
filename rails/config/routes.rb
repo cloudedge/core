@@ -176,6 +176,8 @@ Crowbar::Application.routes.draw do
             put :undebug
             put :redeploy
             put :commit
+            put :alive
+            put :available
           end
           resources :node_roles do
             resources :attribs
