@@ -61,7 +61,7 @@ class NodesController < ApplicationController
   end
 
   def show
-    @node = Node.find_key params[:id]
+    @node = Node.find_key(params[:id]) rescue Node.find_by(alias: params[:id])
     respond_to do |format|
       format.html {  } # show.html.erb
       format.json { render api_show @node }

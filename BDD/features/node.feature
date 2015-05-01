@@ -50,6 +50,16 @@ Feature: Nodes
   Scenario: REST Get 404
     When REST gets the {object:node} "thisdoesnotexist"
     Then I get a {integer:404} error
+
+  Scenario: REST Get Alias
+    Given REST creates the {object:node} "insert.witty.alias"
+      And REST sets the {object:node} "insert.witty.alias" "alias" state to be "witty"
+    When REST gets the {object:node} "witty"
+    Then I get a {integer:200} result
+      And the {object:node} is properly formatted
+      And key "name" is "insert.witty.alias"
+      And key "alias" is "witty"
+    Finally REST removes the {object:node} "insert.witty.alias"
     
   Scenario: Node List
     Given there is a {object:node} "bdd-node-list.example.com"
