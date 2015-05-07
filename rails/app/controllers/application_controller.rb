@@ -61,6 +61,8 @@ class ApplicationController < ActionController::Base
   #helper :all # include all helpers, all the time
 
   protect_from_forgery # See ActionController::RequestForgeryProtection for details
+  skip_before_action :verify_authenticity_token, if: :digest_request?
+
 
   def self.set_layout(template = "application")
     layout proc { |controller|
@@ -193,7 +195,7 @@ class ApplicationController < ActionController::Base
   set_layout
 
   unless Rails.application.config.consider_all_requests_local
-    rescue_from Exception, :with => :render_error
+    rescue_from StandardError, :with => :render_error
   end
 
   private
@@ -274,6 +276,12 @@ class ApplicationController < ActionController::Base
     end
   end
 
+  protected
+
+  def digest_request?
+    request.headers["HTTP_AUTHORIZATION"] && request.headers["HTTP_AUTHORIZATION"].starts_with?('Digest username=')
+  end
+
   def digest_auth!
     authenticate_or_request_with_http_digest(User::DIGEST_REALM) do |username|
       u = User.find_by_username(username)
@@ -294,7 +302,7 @@ class ApplicationController < ActionController::Base
   def crowbar_auth
     case
     when current_user then authenticate_user!
-    when request.headers["HTTP_AUTHORIZATION"] && request.headers["HTTP_AUTHORIZATION"].starts_with?('Digest username=') then digest_auth!
+    when digest_request? then digest_auth!
     when (request.local? ||
           (/^::ffff:127\.0\.0\.1$/ =~ request.remote_ip)) &&
         File.exists?("/tmp/.crowbar_in_bootstrap") &&

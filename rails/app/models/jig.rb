@@ -78,46 +78,7 @@ class Jig < ActiveRecord::Base
   # for the actual run before doing the actual run in a delayed job.
   # RETURNS the attribute data needed for a single noderole run.
   def stage_run(nr)
-    res = {}
-    # Figure out which attribs will be satisfied from node data vs.
-    # which will be satisfied from noderoles.
-    NodeRole.transaction do
-      node_req_attrs = nr.role.role_require_attribs.select do |rrr|
-        attr = rrr.attrib
-        raise("RoleRequiresAttrib: Cannot find required attrib #{rrr.attrib_name}") if attr.nil?
-        attr.role_id.nil?
-      end
-      # For all the node attrs, resolve them.  Prefer hints.
-      # Start with the node data.
-      node_req_attrs.each do |req_attr|
-        Rails.logger.info("Jig: Adding node attribute #{req_attr.attrib_name} to attribute blob for #{nr.name} run")
-        res.deep_merge!(req_attr.get(nr.node))
-      end
-      # Next, do the same for the attribs we want from a noderole.
-      nr.parent_attrib_links.each do |al|
-        res.deep_merge!(al.attrib.extract(al.parent.all_committed_data))
-      end
-      # And all the noderole data from the parent noderoles on this node.
-      # This needs to eventaully go away once I figure ot the best way to pull
-      # attrib data that hsould always be present on a node.
-      nr.all_parents.where(node_id: nr.node.id).each do |pnr|
-        res.deep_merge!(pnr.all_committed_data)
-      end
-      # Add this noderole's attrib data.
-      Rails.logger.info("Jig: Merging attribute data from #{nr.name} for jig run.")
-      res.deep_merge!(nr.all_committed_data)
-      # Add information about the resource reservations this node has in place
-      unless nr.node.discovery["reservations"]
-      res["crowbar_wall"] ||= Hash.new
-        res["crowbar_wall"]["reservations"] = nr.node.discovery["reservations"]
-      end
-      # Add any hints.
-      res["hints"] = nr.node.hint
-      # Add quirks
-      res["quirks"] = nr.node.quirks
-      # And we are done.
-    end
-    res
+    nr.all_transition_data
   end
 
   def finish_run(nr)
@@ -145,67 +106,42 @@ class Jig < ActiveRecord::Base
   end
 
   def run_job(job)
-    loop do
-      nr = job.node_role
-      begin
-        nr.transition!
-        mark_active = true  # allows jigs to skip the active state as an exit condition (allows for async jigs)
-        unless nr.role.destructive && (nr.run_count > 0)
-          Rails.logger.info("Run: Running job #{job.id} for #{nr.name}")
-          run_return = nr.jig.run(nr,job.run_data["data"])
-          # mark the run as active unless it returns the :async symbol
-          # when a jig returns this flag, then it needs to retry the node role for it to continue
-          mark_active = run_return != :async
-          Rails.logger.debug("Run: Finished job #{job.id} for #{nr.name}, no exceptions raised.")
-        else
-          Rails.logger.info("Run: Skipping run for job #{job.id} for #{nr.name} due to destructiveness")
-        end
-        # Only go to active if the node is still alive -- the jig may
-        # have marked it as not alive.
-        nr.active! if nr.node.alive? && nr.node.available? && mark_active
-      rescue Exception => e
-        NodeRole.transaction do
-          nr.update!(runlog: "#{e.class.name}: #{e.message}\nBacktrace:\n#{e.backtrace.join("\n")}")
+    nr = job.node_role
+    to_error = false
+    mark_active = true  # allows jigs to skip the active state as an exit condition (allows for async jigs)
+    begin
+      nr.transition!
+      unless nr.role.destructive && (nr.run_count > 0)
+        Rails.logger.info("Run: Running job #{job.id} for #{nr.name}")
+        run_return = nr.jig.run(nr,job.run_data["data"])
+        # mark the run as active unless it returns the :async symbol
+        # when a jig returns this flag, then it needs to retry the node role for it to continue
+        mark_active = run_return != :async
+        Rails.logger.debug("Run: Finished job #{job.id} for #{nr.name}, no exceptions raised.")
+      else
+        Rails.logger.info("Run: Skipping run for job #{job.id} for #{nr.name} due to destructiveness")
+      end
+    rescue StandardError => e
+      to_error = true
+      NodeRole.transaction do
+        nr.update!(runlog: "#{e.class.name}: #{e.message}\nBacktrace:\n#{e.backtrace.join("\n")}")
+      end
+      Rails.logger.debug("Run: Finished job #{job.id} for #{nr.name}, exceptions raised.")
+      Rails.logger.error("#{e.class.name}: #{e.message}\nBacktrace:\n#{e.backtrace.join("\n")}")
+    ensure
+      finish_run(nr)
+      Run.locked_transaction do
+        Rails.logger.debug("Run: Deleting finished job #{job.id} for #{nr.name}")
+        job.delete
+        if to_error
           nr.error!
-        end
-        Rails.logger.debug("Run: Finished job #{job.id} for #{nr.name}, exceptions raised.")
-        Rails.logger.error("#{e.class.name}: #{e.message}\nBacktrace:\n#{e.backtrace.join("\n")}")
-      ensure
-        finish_run(nr)
-        Run.locked_transaction do
-          Rails.logger.debug("Run: Deleting finished job #{job.id} for #{nr.name}")
-          job.delete
-          # Try to steal work for this node if we can.
-          job = nil
-          unless Run.exists?(node_id: nr.node_id, running: true)
-            # This will ensure that queued noderoles get processed
-            # in proper dependency order.
-            job = Run.where(node_id: nr.node_id).runnable.first
-            if job
-              # Pick the latest job with the same noderole as the job we just found, and
-              # delete the previous instances.  This ensures that we do not waste time running
-              # intermediate roles where we do not need to.
-              Rails.logger.info("Run: Stole preexisting run #{job.id}")
-              job.running = true
-              job.save!
-            else
-              # We did not find an already-enqueued run, so see if we can make
-              # one from a handy runnable NodeRole.
-              nr = NodeRole.where(node_id: nr.node_id).runnable.order("cohort ASC").first
-              if nr
-                Rails.logger.info("Run: Stealing #{nr.name}")
-                job = Run.create!(node_id: nr.node_id,
-                                  node_role_id: nr.id,
-                                  running: true,
-                                  run_data: {"data" => nr.jig.stage_run(nr)})
-              end
-            end
-          end
+        else
+          # Only go to active if the node is still alive -- the jig may
+          # have marked it as not alive.
+          nr.active! if nr.node.alive? && nr.node.available? && mark_active
         end
       end
-      break unless job
     end
-    Run.run!
   end
 
 private

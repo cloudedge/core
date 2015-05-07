@@ -139,8 +139,8 @@ step(_Global, {step_setup, {_Scenario, _N}, Test}) ->
   bdd_utils:alias(network_range, range),
   bdd_utils:alias(network_router, router),
   % before we do anything else, we need to create some consul services
-  Services = bdd_utils:config(services, ["dns-service", "ntp-service", "proxy-service"]),
-  [true,true,true] = [consul:reg_serv(S) || S <- Services],
+  Services = bdd_utils:config(services, ["dns-service", "ntp-service", "proxy-service", "provisioner-service", "crowbar-api-service", "crowbar-job-runner-service"]),
+  [true,true,true,true,true,true] = [consul:reg_serv(S) || S <- Services],
   bdd_utils:log(info, crowbar, global_setup, "Consul Registered ~p",[Services]),
   % make sure there's a worker
   true = worker(),
@@ -162,7 +162,7 @@ step(_Global, {step_setup, {_Scenario, _N}, Test}) ->
   % setup phantom node roles
   bdd_utils:log(debug, crowbar, global_setup, "Adding Service Roles", []),
   Phantom = bdd_utils:config(system_phantom,"system-phantom.internal.local"),
-  PhantomRoles = bdd_utils:config(system_phantom_roles, ["dns-service", "ntp-service", "proxy-service", "dns-mgmt_service"]),
+  PhantomRoles = bdd_utils:config(system_phantom_roles, ["dns-service", "ntp-service", "proxy-service", "provisioner-service", "dns-mgmt_service", "crowbar-api_service", "crowbar-job_runner_service"]),
   ServiceNRs = eurl:path([node:g(path), Phantom, "node_roles"]),
   R = eurl:get_http(ServiceNRs),
   O = bdd_restrat:get_object(R),
@@ -180,7 +180,7 @@ step(_Global, {step_setup, {_Scenario, _N}, Test}) ->
   end,
   % create node for testing
   bdd_utils:log(debug, crowbar, global_setup, "Global Setup running (creating node ~p)",[g(node_name)]),
-  node:add_node(g(node_name), "crowbar-admin-node", [{description, Test ++ g(description)}, {order, 100}, {admin, "true"}], g(node_atom)),
+  node:add_node(g(node_name), "crowbar-admin-node", [{description, Test ++ g(description)}, {order, 100}, {admin, "true"}, {ip, "192.168.124.10/24"}], g(node_atom)),
   true;
 
 % find the node from setup and remove it
@@ -246,6 +246,8 @@ step(_Global, {step_given, {_Scenario, _N}, ["test loads the",File,"data into",n
 
 % ============================  WHEN STEPS =========================================
 
+step(Given, {step_given, {Scenario, N}, ["I add",node, Node,"to",deployment, Deployment,"in",role,Role]}) -> 
+  step(Given, {step_when, {Scenario, N}, ["I add",node, Node,"to",deployment, Deployment,"in",role,Role]});
 step(_Given, {step_when, {_Scenario, _N}, ["I add",node, Node,"to",deployment, Deployment,"in",role,Role]}) -> 
   node_role:bind(Node, Role, Deployment);
 

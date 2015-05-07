@@ -137,19 +137,33 @@ class Node < ActiveRecord::Base
     IP.coerce("#{net.v6prefix}:#{v6_hostpart}/64")
   end
 
-  def addresses
-    net = Network.find_by!(:name => "admin") rescue nil
-    return [] unless net
-    res = network_allocations.where(network_id: net.id).map do |a|
-      a.address
+  def addresses(filter = :all, networks = ["admin","unmanaged"])
+    res = []
+    networks.each do |net_cat|
+      nets = Network.in_category(net_cat)
+      nets.each do |net|
+        res2 = network_allocations.where(network_id: net.id).select do |a|
+          answer = true
+          answer = false if filter == :v4_only and !a.address.v4?
+          answer = false if filter == :v6_only and !a.address.v6?
+          answer
+        end.map do |a|
+          a.address
+        end
+
+        if res2
+          res2 = res2.sort
+          res << res2
+        end
+      end
     end
-    res.sort
+    res.flatten
   end
 
-  def address
-    res = addresses.detect{|a|a.reachable?}
-    Rails.logger.warn("Node #{name} did not have any reachable addresses in #{addresses.map{ |a| a.addr }.join(",")}") unless res
-    res 
+  def address(filter = :all, networks = ["admin","unmanaged"])
+    res = addresses(filter,networks).detect{|a|a.reachable?}
+    Rails.logger.warn("Node #{name} did not have any reachable addresses in networks #{networks.inspect}") unless res
+    res
   end
 
   def url_address
@@ -484,6 +498,7 @@ class Node < ActiveRecord::Base
       Rails.logger.debug("Node: Calling #{r.name} on_node_change for #{self.name}")
       r.on_node_change(self)
     end if available?
+    Publisher.publish_event("node", "on_change", { :node => self, :name => self.name, :id => self.id }) if available?
     if (previous_changes[:alive] || previous_changes[:available])
       if alive && available && node_roles.runnable.count > 0
         Rails.logger.info("Node: #{name} is alive and available, kicking the annealer.")
@@ -494,6 +509,7 @@ class Node < ActiveRecord::Base
           node_roles.order("cohort ASC").each do |nr|
             nr.deactivate
           end
+          runs.delete_all
         end
       end
     end
@@ -532,10 +548,11 @@ class Node < ActiveRecord::Base
       begin
         Rails.logger.info("Node: Calling #{r.name} on_node_delete for #{self.name}")
         r.on_node_delete(self)
-      rescue Exception => e
+      rescue StandardError => e
         Rails.logger.error "node #{name} attempting to cleanup role #{r.name} failed with #{e.message}"
       end
     end
+    Publisher.publish_event("node", "on_delete", { :node => self, :name => self.name, :id => self.id })
   end
 
   def on_create_hooks
@@ -554,6 +571,7 @@ class Node < ActiveRecord::Base
         r.add_to_node(self)
       end
     end
+    Publisher.publish_event("node", "on_create", { :node => self, :name => self.name, :id => self.id })
   end
 
 end

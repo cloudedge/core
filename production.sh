@@ -22,6 +22,7 @@ rm -rf /etc/yum.repos.d/crowbar-open*
 cd /opt/opencrowbar/core
 . ./bootstrap.sh
 set -e
+set -o pipefail
 if [[ $http_proxy && !$upstream_proxy ]] && ! pidof squid; then
     export upstream_proxy=$http_proxy
 fi
@@ -38,9 +39,6 @@ if [[ $1 ]]; then
             FQDN="$(hostname -s).${1#*.}"
         else
             FQDN="$1"
-            # Fix up the localhost address mapping.
-            sed -i -e "s/\(127\.0\.0\.1.*\)/127.0.0.1 $FQDN $HOSTNAME localhost.localdomain localhost/" /etc/hosts
-            sed -i -e "s/\(127\.0\.1\.1.*\)/127.0.1.1 $FQDN $HOSTNAME localhost.localdomain localhost/" /etc/hosts
             # Fix Ubuntu/Debian Hostname
             echo "$FQDN" > /etc/hostname
         fi
@@ -52,7 +50,13 @@ elif ! [[ $FQDN =~ $hostname_re ]]; then
     echo "Please pass one as the first parameter to this script so we can set it."
     exit 1
 fi
- 
+
+# Fix up the localhost address mapping.
+if [[ ! -f /.dockerenv ]]; then
+    sed -i -e "s/\(127\.0\.0\.1.*\)/127.0.0.1 $FQDN $HOSTNAME localhost.localdomain localhost/" /etc/hosts
+    sed -i -e "s/\(127\.0\.1\.1.*\)/127.0.1.1 $FQDN $HOSTNAME localhost.localdomain localhost/" /etc/hosts
+fi
+
 # Fix CentOs/RedHat Hostname
 if [ -f /etc/sysconfig/network ] ; then
   sed -i -e "s/HOSTNAME=.*/HOSTNAME=$FQDN/" /etc/sysconfig/network
@@ -63,10 +67,7 @@ echo "${FQDN#*.}" > /etc/domainname
 
 export FQDN
 
-rm -rf install-*.log
-./crowbar-boot.sh 2>&1 | tee -a install-boot.log
-./crowbar-consul.sh 2>&1 | tee -a install-consul.log
-./crowbar-database.sh 2>&1 | tee -a install-database.log
-./crowbar-core.sh 2>&1 | tee -a install-core.log
-./crowbar-config.sh 2>&1 | tee -a install-config.log
-
+mkdir -p /var/log/crowbar
+for stage in boot consul database core config; do
+    "./crowbar-${stage}.sh" 2>&1 |tee "/var/log/crowbar/install-${stage}.log"
+done

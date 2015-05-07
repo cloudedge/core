@@ -15,17 +15,18 @@
 
 action :add do
   os = "#{new_resource.distro}-#{new_resource.version}"
-  proxy = node["crowbar"]["proxy"]["servers"].first
+  proxy = node["crowbar"]["proxy"]["servers"].first["url"]
   repos = node["crowbar"]["provisioner"]["server"]["repositories"][os]
   params = node["crowbar"]["provisioner"]["server"]["boot_specs"][os]
   online = node["crowbar"]["provisioner"]["server"]["online"]
   tftproot = node["crowbar"]["provisioner"]["server"]["root"]
-  provisioner_addr = node["crowbar"]["provisioner"]["server"]["v4addr"]
-  provisioner_web = node["crowbar"]["provisioner"]["server"]["webserver"]
+  provisioner_web = node["crowbar"]["provisioner"]["server"]["webservers"].first["url"]
+  api_server=node['crowbar']['api']['servers'].first["url"]
+  ntp_server = "#{node["crowbar"]["ntp"]["servers"].first}"
   use_local_security = node["crowbar"]["provisioner"]["server"]["use_local_security"]
   install_url=node["crowbar"]["provisioner"][""]
-  machine_key = node["crowbar"]["provisioner"]["machine_key"]
-  keys = node["crowbar"]["provisioner"]["server"]["access_keys"].values.sort.join($/)
+  machine_key = node["crowbar"]["machine_key"]
+  keys = node["crowbar"]["access_keys"].values.sort.join($/)
   os_dir = "#{tftproot}/#{os}"
   mnode_name = new_resource.name
   node_dir = "#{tftproot}/nodes/#{mnode_name}"
@@ -58,7 +59,7 @@ action :add do
               :repos => repos,
               :provisioner_web => provisioner_web,
               :source => "#{provisioner_web}/#{os}/install",
-              :admin_ip => provisioner_addr,
+              :api_server => api_server,
               :online => online,
               :keys => keys,
               :web_path => web_path)
@@ -69,7 +70,7 @@ action :add do
     owner "root"
     group "root"
     source "xen-post-install.sh.erb"
-    variables(:admin_ip => provisioner_addr,
+    variables(:api_server => api_server,
               :keys => keys,
               :provisioner_web => provisioner_web)
   end

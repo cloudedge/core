@@ -36,14 +36,20 @@ class DeploymentRole < ActiveRecord::Base
   end
 
   def data
-    deployment.proposed? ? proposed_data : committed_data
+    proposed_data || committed_data
   end
 
   def data=(val)
     DeploymentRole.transaction do
-      raise "Cannot edit deployment_role data when deployment is not proposed!" unless deployment.proposed?
+      # We can always update the data, as it will just kick the
+      # deplotment_role back to Proposed.  Ongoing operations will
+      # continue to use the previously committed data.
       update!(proposed_data: val)
     end
+  end
+
+  def noderoles
+    NodeRole.with_role(role).in_deployment(deployment)
   end
 
   def committed?
@@ -58,14 +64,15 @@ class DeploymentRole < ActiveRecord::Base
     return if committed?
     DeploymentRole.transaction do
       if committed_data != proposed_data
-        committed_data = proposed_data
-        # Have any runnable noderoles that use this deployment role rerun.
-        deployment.node_roles.where(role_id: role.id).each do |nr|
-          nr.todo! if nr.runnable?
-        end
+        update!(committed_data: proposed_data)
+        update!(proposed_data: nil)
+        save!
       end
-      self[:proposed_data] = nil
-      save!
+    end
+    Publisher.publish_event("deployment_role", "on_change", { :deployment_role => self, :id => self.id })
+    # Have any runnable noderoles that use this deployment role rerun.
+    deployment.node_roles.where(role_id: role.id).each do |nr|
+      nr.todo! if nr.runnable?
     end
   end
 
@@ -74,13 +81,19 @@ class DeploymentRole < ActiveRecord::Base
     save!
   end
 
-  def all_data
+  def all_committed_data
     role.template.deep_merge(self.committed_data).deep_merge(self.wall)
+  end
+
+  def all_data
+    res = all_committed_data
+    res.deep_merge(all_proposed_data) if proposed_data
+    res
   end
 
   def data_update(val)
     DeploymentRole.transaction do
-      update!(proposed_data: proposed_data.deep_merge(val))
+      update!(proposed_data: data.deep_merge(val))
     end
   end
 
@@ -94,10 +107,12 @@ class DeploymentRole < ActiveRecord::Base
 
   def role_create_hook
     role.on_deployment_create(self)
+    Publisher.publish_event("deployment_role", "on_create", { :deployment_role => self, :id => self.id })
   end
 
   def role_delete_hook
     role.on_deployment_delete(self)
+    Publisher.publish_event("deployment_role", "on_delete", { :deployment_role => self, :id => self.id })
   end
 
 end

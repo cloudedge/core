@@ -10,7 +10,7 @@
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
-# limitations under the License.  
+# limitations under the License.
 
 class Service < Role
 
@@ -33,6 +33,7 @@ class Service < Role
           runlog << "#{service_name} not available ... wait 10m or next update"
           if meta[:index]
             options[:wait] = "10m"
+            count -= 1 if options[:index] and options[:index] < meta[:index] # Don't count an update as a timeout
             options[:index] = meta[:index]
           else
             sleep 10
@@ -43,7 +44,7 @@ class Service < Role
           runlog << "#{service_name} not found ... wait 10s"
           sleep 10
         end
-      rescue Exception => e
+      rescue StandardError => e
         runlog << "Failed to talk to consul: #{e.message}"
         Rails.logger.info("Failed to talk to consul: #{e.message}")
         sleep 10
@@ -51,21 +52,23 @@ class Service < Role
     end
 
     runlog << "Processing pieces for #{service_name}"
-    if pieces
-      pieces.each do |p|
-        if block_given?
-          addr_arr << yield(p)
-        else
-          addr_arr << p.Address
+    NodeRole.transaction do
+      if pieces
+        pieces.each do |p|
+          if block_given?
+            addr_arr << yield(p)
+          else
+            addr_arr << p.Address
+          end
         end
+        runlog << "Setting #{service_name} attribute"
+        Attrib.set(service_attribute, nr, addr_arr, :system)
       end
-      runlog << "Setting #{service_name} attribute"
-      Attrib.set(service_attribute, nr, addr_arr, :system)
-    end
 
-    Rails.logger.info("Finished waiting for #{service_name}: #{addr_arr.length} found")
-    nr.runlog = runlog.join("\n")
-    nr.save!
+      Rails.logger.info("Finished waiting for #{service_name}: #{addr_arr.length} found")
+      nr.runlog = runlog.join("\n")
+      nr.save!
+    end
     raise "#{service_name} not available" if pieces == nil or pieces.empty?
   end
 

@@ -1,4 +1,4 @@
-# Copyright 2013, Dell
+# Copyright 2015, RackN
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,30 +15,10 @@
 
 class BarclampProvisioner::Server < Role
 
-  KEY_FILE = "/etc/crowbar.install.key"
-
-  # when proposed, we need to create an entry for crowbar's admin key
-  def on_proposed(nr)
-
-    # the key should exist, we need to handle deal with cases where it does not
-    key = if File.exist? KEY_FILE
-      File.read(KEY_FILE).chomp.strip
-    elsif Jig.active('test')
-      "testing_no_key_required"
-    else
-      Rails.logger.error "Provisioner Server Role requires the Crowbar Key from '#{KEY_FILE}' but could not find it"
-      raise "Proviser Server Role cannot find #{KEY_FILE}"
-    end
-
-    # build the JSON data for the node role
-    nr.sysdata = {
-      "crowbar" => {
-        "provisioner" => {
-          "machine_key" => key
-        }
-      }
-    }
-
+  def sysdata(nr)
+    my_addr = nr.node.addresses(:v4_only).first
+    raise "No address for the Provisioner Server" unless my_addr
+    { 'provisioner' => { 'service_address' => my_addr.to_s } }
   end
 
 end

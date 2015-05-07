@@ -16,7 +16,6 @@ roles:
   - name: proxy-server
     jig: chef
     requires:
-      - network-admin
       - consul
     attribs:
       - name: proxy-upstream_proxy
@@ -48,8 +47,5 @@ roles:
     jig: chef
     flags:
       - implicit
-    requires:
-      - proxy-service
-      - network-admin
     wants-attribs:
       - proxy-servers

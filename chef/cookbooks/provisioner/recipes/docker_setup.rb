@@ -13,9 +13,8 @@
 # limitations under the License.
 #
 
-provisioner_web=node["crowbar"]["provisioner"]["server"]["webserver"]
-provisioner_addr=node["crowbar"]["provisioner"]["server"]["v6addr"]
-proxy=node["crowbar"]["proxy"]["servers"].first
+api_server = node['crowbar']['api']['servers'].first['url'],
+proxy = node['crowbar']['proxy']['servers'].first['url'],
 tftproot = node["crowbar"]["provisioner"]["server"]["root"]
 node_dir="#{tftproot}/nodes"
 node.normal["crowbar_wall"] ||= Mash.new
@@ -40,8 +39,8 @@ v4addresses = v4dns.collect{|a|a.addr}
               :dns_servers => v4addresses,
               :name => name,
               :proxy => proxy,
-              :keys => (node["crowbar"]["provisioner"]["server"]["access_keys"] rescue Hash.new).values.sort.join($/),
-              :admin_url => "http://[#{provisioner_addr}]:3000"
+              :keys => (node["crowbar"]["access_keys"] rescue Hash.new).values.sort.join($/),
+              :admin_url => api_server
               )
   end
 end
