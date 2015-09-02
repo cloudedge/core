@@ -6,15 +6,17 @@ While it's been completly rebuilt by DevOps artisans, Digital Rebar history incl
 
 ## Getting Started & Documentation
 
+_TLDR? [Install!](https://github.com/digitalrebar/doc/blob/master/install.rst)_
+
 Documentation is maintained in the [**doc** repository](https://github.com/digitalrebar/doc).
 
 ## Help & Community
 
-* [Live Weekly Planning and Design Meetings](http://bit.ly/digitalrebarcalendar)
-* [Mailing List](http://bit.ly/digitalrebarlist)
-* Chat
-  * Gitter: [![Gitter](https://badges.gitter.im/Join Chat.svg)](https://gitter.im/digitalrebar/core?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-  * IRC: #digitalrebar channel on [Freenode](https://webchat.freenode.net/) (try Gitter first)
+* Calendar: [Live Weekly Planning and Design Meetings](http://bit.ly/digitalrebarcalendar)
+* Group: [Mailing List](http://bit.ly/digitalrebarlist)
+* Chat: [![Gitter](https://badges.gitter.im/Join Chat.svg)](https://gitter.im/digitalrebar/core?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+* Issues: [![Stories in Ready](https://badge.waffle.io/digitalrebar/core.svg?label=ready&title=Ready)](http://waffle.io/digitalrebar/core)
+* #digitalrebar IRC channel on [Freenode](https://webchat.freenode.net/) (hint: Gitter is more active).
 
 Commercial support for Digital Rebar is available from [RackN Inc](http://rackn.com).
 
