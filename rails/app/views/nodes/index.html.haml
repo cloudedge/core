@@ -30,10 +30,14 @@
     var provider = $("#add_provider").val();
     var os = $("#add_os").val();
     var number = parseInt($("#number").val());
+    var dnsdomain = "neode.org";
+    $.getJSON("/api/v2/nodes/system-phantom.internal.local/attribs/dns-domain", function(data) {
+      dnsdomain = data.value;
+    });
     for (var i=0; i<number; i++) {
       $.post("#{nodes_path}",
         {
-          name: base_name+"_"+i+"."+provider+".neode.org",
+          name: base_name+"_"+i+"."+provider+"."+dnsdomain,
           description: "created by #{current_user.username}",
           provider: provider,
           hints: { 
