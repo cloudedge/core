@@ -250,6 +250,9 @@ en:
       role_missing: "Missing required role: %{role}"
       <<: *raid_types
   dashboard:
+    index:
+      title: "Status Dashboard"
+      services: "Services"
     list:
       title: "Bulk Edit Nodes"
       name: "Node Name"

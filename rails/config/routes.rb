@@ -78,6 +78,7 @@ Rebar::Application.routes.draw do
     post 'getready'           => 'dashboard#getready', :as => :post_getready
     get 'layercake'           => 'dashboard#layercake', :as => :layercake
     get 'families(/:id)'      => 'dashboard#families', :as => :families
+    get '(/:id)'              => 'dashboard#index', :as => :dashboard
   end
   
   # UI only functionality to help w/ visualization

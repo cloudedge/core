@@ -15,6 +15,24 @@
 #
 class DashboardController < ApplicationController
 
+  def index
+    @deployments = Deployment.all
+    status = {}
+    respond_to do |format|
+      format.html { }
+      format.json {
+        @deployments.each do |d|
+          status[d.id] = { 
+            node_roles: d.node_roles.map{ |nr| nr.state},
+            nodes: d.nodes.non_system.map{ |n| n.state },
+            services: d.system_node.node_roles.map{ |r| [r.role.name, r.state] }.to_h
+          }
+        end
+        render :json => status.to_json 
+      } 
+    end
+  end
+
   def layercake
     # we may want to move this into the database at some point
     taxmap = JSON::load File.open(File.join("config", "layercake.json"), 'r')
