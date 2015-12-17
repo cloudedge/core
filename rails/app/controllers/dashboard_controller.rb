@@ -17,7 +17,7 @@ class DashboardController < ApplicationController
 
   def index
     @deployments = Deployment.all
-    status = {}
+    status = { deployments: @deployments.map{ |d| d.id } }
     respond_to do |format|
       format.html { }
       format.json {

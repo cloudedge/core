@@ -13,173 +13,54 @@
         %td.nodes
           %a{:href=>monitor_path(d.id), :title=>"#{d.name} monitor",:style=>"display: inline-block;position: relative;"}
             = "tristate per node"
-        %td.services= "service list"
+        %td.services{:style=>"font-size:50px; font-family:Symbola"}
+          = "service list"
 
 .clear
 
 :javascript
 
+  $.ajaxSetup
+    cache: false
+
+  var refreshRate = #{current_user.settings(:ui).fast_refresh};
+  var hasLoaded = false;
+
   icons = { 
-    missing: &#x2699;,
-    rebar-job_runner_service: &#x2699;,
-    network-server: &#x2699;,
-    ntp-service: &#x2699;,
-    dns-service: &#x2699;,
-    dhcp-service: &#x2699;,
-    proxy-service: &#x2699;,
-    provisioner-service: &#x2699;,
-    rebar-api_service: &#x2699;,
-    chef-service: &#x2699;,
-    dns-mgmt_service: &#x2699;,
-    dhcp-mgmt_service: &#x2699; 
+    'missing': 0x26ED,  //gear without hub
+    'rebar-job_runner_service': 0xF09F8DB4 ,  // factory
+    'network-server': 0x2699,  // pipe
+    'ntp-service': 0x2699,  // clock
+    'dns-service': 0x2699,  // can
+    'dhcp-service': 0x2699,  // passport
+    'proxy-service': 0x2699,  // phone
+    'provisioner-service': 0x2699,  // truck
+    'rebar-api_service': 0x2B7F,  // up & down arrows
+    'chef-service': 0x1F374, // knife & fork
+    'dns-mgmt_service': 0x2699,  // gear with hub
+    'dhcp-mgmt_service': 0x2699   // gear with hub
   };
-  groups = {};
-  selected = '#{session[:node]}';
-
-  function pie_title(total, ready, failed, unknown, unready, pending, building) {
-    var status = "#{t :status_pie, :scope=>'dashboard.index'}";
-    status = status.replace("{0}", total);
-    status = status.replace("{1}", ready);
-    status = status.replace("{2}", failed);
-    status = status.replace("{3}", unknown);
-    status = status.replace("{4}", unready+pending+building);
-    return status;
-  }
-
-    // set draggable attributes
-  $('a.node_details[draggable="true"]')
-    .bind('dragend', function( ev ) {
-      false;
-    })
-    .bind('dragstart', function( ev ) {
-      // console.debug("dragging " + ev.target.id);
-      var dt = ev.originalEvent.dataTransfer;
-      // TODO make sure only a available set this!
-      dt.setData("Text", ev.target.id);
-    });
-
-  // set droppable attributes using bind_drop
-  $('div.group[draggable="true"]').each(function() { bind_drop($(this))} );
-
-
-  function bind_drop(div) {
-    // Decide whether the thing dragged in is welcome.
-    div.bind('dragover', function(ev) {
-        if (ev.preventDefault) ev.preventDefault(); // allows us to drop
-        return false;
-    });
-
-    // Handle the final drop...
-    div.bind('drop', function(ev) {
-      if (ev.preventDefault) ev.preventDefault(); // allows us to drop
-      var node = ev.originalEvent.dataTransfer.getData("Text");
-      var group = $(this).attr('id');
-      // console.debug(node + ' into ' + group );
-      $.ajax({url:'/2.0/rebar/2.0/group/'+group+'/node/'+node, dataType:'json', type:"PUT",
-        statusCode: { 200: function(data) { location.href = '#{dashboard_path}/'+selected; }}
-      });
-    });
-  }
-
-  function hide_group() {
-    $('#add_group_div').attr('style','display:none');
-  }
-
-  function remove_group(id) {
-    $.ajax({url:'/2.0/rebar/2.0/group/'+id, type:"DELETE", dataType: 'json',
-      statusCode: { 200: function(data) { $('#group_'+id).remove(); } }
-    });
-  }
-
-  function add_group() {
-    var group_div = $('#add_group_div');
-    var new_group = $('#new_group').val();
-    var group = $('th[droptarget="true"]');
-    var valid_group_regex = /^[a-zA-Z][a-zA-Z0-9._-]+$/;
-    if (new_group.match(valid_group_regex)) {
-      // Create the group json and post it
-      var group_data = {'name': new_group, 'description': new_group, 'category': 'ui'}
-      $.ajax({url:"/2.0/rebar/2.0/group", data:group_data, type:'POST', dataType:'json',
-        success:function(data) {
-          // on success, add to the UI
-          var id = data['id']
-          group.attr('id', id);
-          group.text(new_group);
-          bind_drop($('#'+id.toString()));
-          group_div.attr('style', 'display:inline');
-          $('a#add_button').attr('class','button');},
-        error:function(data) {
-          alert("#{t '.add_group_exists'}"); $('a#add_button').attr('class','button'); }
-      })}
-    else {
-      alert("#{t '.add_group_error'}");
-      $('a#add_button').attr('class','button');
-    }
-  }
 
   function update() {
-    // use nopoll parameter for debugging to prevent activity on web server
-    // TODO: restore this:
-    if (#{params.include?(:nopoll) ? 'false' : 'true'}) {
-      $.ajaxSetup({ timeout: 3000 })
-      $.getJSON('#{nodes_status_path()}', function(data) {
-
-        // reload path
-        var repath = '#{dashboard_path}/'+selected;
-
-        // If node count has changed, re-render the page
-        var current_nodes = $('.node').length;
-        if(data['count'] != current_nodes) {
-          location.href = repath;
-        }
-
-        // If node name sum has changed, re-render the page
-        if(data['sum'] != #{@sum}) {
-          location.href = repath;
-        }
-
-        // Update group-level piecharts
-        $.each(data['groups'], function(key,val) {
-          k = key.toString();
-          var values = val['ready'] + ', ' + val['failed'] + ', ' + val['unknown'] + ', ' + (val['building']+val['unready']+val['pending']);
-          var total = val['ready']+val['unready']+val['unknown']+val['building']+val['pending']+val['failed'];
-          if (groups[k]==undefined) {
-            groups[k] = total;
-          } else if (groups[k]!=total) {
-            location.href =repath;
-          }
-          $('#group_'+k+' th.status .inline_piechart').html(values).sparkline('html', piechart_options );
-          $('#group_'+k+' th.status').attr('title', pie_title(total, val['ready'], val['failed'], val['unknown'], val['building'], val['unready'], val['pending']));
-        });
-
-        // Update nodes
-        $.each(data['status'], function(key,val) {
-          k = key.toString();
-          var td = $('#'+k+' td.status');
-          var led = td.children('.led');
-          if(!(td.attr('raw') === val['raw'])) {
-            led.destroy();
-            led.attr('class', 'led '+val['status']);
-            td.attr('raw', val['raw']);
-            td.effect("highlight", {color: '#666666'}, 2000);
-            led.attr('title', val['state']);
-          }
-          // catch the case where we've expanded detail on a node
-          s = $('div.container dd.node_state');
-          h_key = "head_"+k;
-          h = $('div.container div.led[id="'+h_key+'"]');
-          if (h.attr('id')==h_key && s.text()!=val['state']) {
-            s.text(val['state']);
-            s.effect("highlight", {color: '#666666'}, 2000);
-            s.attr('title','#{t('raw')}: '+val['raw']);
-            var head = $('#head_'+k);
-            if (head.length !=0 ) {
-              head.destroy();
-              head.attr('class', 'led '+val['status']);
-              head.attr('title', val['state']);
-            }
-          }
-        });
-      });
-    }
+    $.getJSON("#{dashboard_path}.json", function(data, err) {
+      // deployments
+      for (var i in data.deployments) {
+        var d = data.deployments[i];
+        // pie
+        $("tr#"+d+" td.roles")[0].innerText = data[d].node_roles;
+        // nodes
+        $("tr#"+d+" td.nodes")[0].innerText = data[d].nodes;
+        // services
+        var services = $("tr#"+d+" td.services")[0];
+        var slist = ""
+        for(var s in data[d].services) {
+          console.debug(icons[s]);
+          // TODO - handle missing case, green if ready, invert&red if not ready
+          slist += "<span>"+String.fromCharCode(icons[s])+"</span>";
+        };
+        services.innerHTML = slist;
+      };
+    });
   }
+
+  update();
