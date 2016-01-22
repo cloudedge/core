@@ -302,6 +302,7 @@ Rebar::Application.routes.draw do
               get 'sample'
               post 'match'
             end
+            match :parents, via: [:get, :post, :delete]
             resources :attribs
             resources :deployment_roles
             resources :node_roles

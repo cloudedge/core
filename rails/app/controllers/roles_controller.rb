@@ -30,6 +30,32 @@ class RolesController < ApplicationController
     end
   end
   
+  # API only
+  # Allows you to get a liist of parents, add and remove ONLY if the role is not used yet
+  def parents
+    @item = Role.find_key params[:role_id]
+    if request.get?
+      @list = @item.parents
+      render api_index Role, @list
+    elsif @item.node_roles.count > 0
+        Rails.logger.error "cannot delete Role @{item.name} parent #{params[:id]} because Role has node_roles"
+        render api_conflict Role
+    else
+      @parent = Role.find_key params[:id]
+      if request.post?
+        RoleRequire.find_or_create_by!(:role_id => @item.id, :requires => @parent.name)
+        @list = Role.find(@item.id).parents
+        render api_index Role, @list
+      elsif request.delete?
+        rr = RoleRequire.where(:role_id => @item.id, :requires => @parent.name).first
+        Rails.logger.info("removing RoleRequire #{rr.inspect}")
+        rr.destroy!
+        render api_delete rr
+
+      end
+    end
+  end
+
   def index
     @list = if params.include? :deployment_id
               Deployment.find_key(params[:deployment_id]).roles

@@ -12,6 +12,7 @@
         %th= t '.upstream'
         %th= t '.provides'
         %th= t '.conflicts'
+        %th= ''
     %tbody
       - mylist.each do |role|
         %tr.node{ :class => cycle(:odd, :even) }
@@ -37,3 +38,6 @@
           %td
             - role.conflicts.each do |r|
               = link_to r, role_path(r)
+          %td
+            - if outter_role
+              = link_to image_tag("icons/delete.png"), "javascript:delete_parent_role(#{outter_role},#{role.id})"

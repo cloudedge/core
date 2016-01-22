@@ -1,0 +1,30 @@
+%h1
+  =t '.title'
+
+= form_for :ansible, :'data-remote' => true, :url => '/dashboard/ansible', :html => { :method=>:post, :'data-type' => 'json',  :id => 'ansible', :class => "formtastic" } do |f|
+
+  %table.data.box
+    %thead
+      %tr
+        %th{:width=>'10%'}= t('.selection')
+        %th= t('.selectionValue')
+    %tbody
+      %tr{:class => cycle(:odd,:even)}
+        %td= t('.name')
+        %td= text_field_tag(:name, t('.default'), :size => 15)
+      %tr{:class => cycle(:odd,:even)}
+        %td= t('.description')
+        %td= text_field_tag(:description, t('.default'), :size => 15)
+      %tr{:class => cycle(:odd,:even)}
+        %td= t('.url')
+        %td= text_field_tag(:url, "https://github.com/digtalrebar/ansibleref", :size => 40)
+      %tr{:class => cycle(:odd,:even)}
+        %td= t('.map_role')
+        %td= text_field_tag(:map_role, "", :size => 40)
+      %tr{:class => cycle(:odd,:even)}
+        %td= t('.milestones_groups')
+        %td= text_field_tag(:map_role, "", :size => 40)
+
+  %input.button{:type => "submit", :name => "create", :method=>:post, :value => t('.create')}
+
+.clear

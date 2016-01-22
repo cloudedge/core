@@ -40,10 +40,21 @@
     %p= t '.model_error', :error=>moderror.message
 
   - unless params.include? :form
-    %h3= t '.upstream'
-    = render :partial => "index", :locals => { :list => @role.parents, :jig_name => nil }
+    - outrole = nil
+    %table{:width=>'100%'}
+      %tr
+        %td
+          %h3= t '.upstream'
+        %td{:align=>'right', :id=>'addcell'}
+          - if @role.node_roles.count == 0
+            - outrole = @role.id
+            = t '.parent'
+            = select :add, :parent, options_for_select(Role.all.sort_by{|r| r.name}.map{|r| r.name}, '')
+            = link_to t('add'), "javascript:add_parent_role()", :class => 'button'
 
-%h3= t'.attributes'
+    = render :partial => "index", :locals => { :list => @role.parents, :jig_name => nil, :outter_role => outrole }
+
+%h3= t '.attributes'
 
 - if @role.attribs.count == 0
   =t 'no_items'
@@ -109,3 +120,19 @@
       };
       location.reload();
     }
+
+- if @role.node_roles.count == 0
+
+  :javascript
+
+    function add_parent_role() {
+      var provider = $("#add_parent").val();
+      console.debug(provider);
+      $.ajax({url: "/api/v2/roles/#{@role.id}/parents", data: {'id': provider}, type: "post" });
+      location.reload();
+    }
+
+    function delete_parent_role(role, parent) {
+      $.ajax({url: "/api/v2/roles/"+role+"/parents", data: {'id': parent}, type: "delete" });
+      location.reload();
+    };

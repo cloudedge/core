@@ -4,4 +4,4 @@
   %h3 
     = link_to j.name, jig_path(j.id), :title=>j.description
     = t '.jig'
-  = render :partial => 'index', :locals => { :list => @list, :jig_name => j.name }
+  = render :partial => 'index', :locals => { :list => @list, :jig_name => j.name, :outter_role=>nil }

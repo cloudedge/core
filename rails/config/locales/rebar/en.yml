@@ -582,6 +582,7 @@ en:
       attrib: "Name"
       map: "Map"
       source: "Source"
+      parent: "Parent"
     names:
       role: "Roles"
     anneal:
