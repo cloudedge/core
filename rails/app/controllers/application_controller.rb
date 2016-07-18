@@ -491,6 +491,7 @@ class ApplicationController < ActionController::Base
       if validate_capability(t_id, "#{cap_base}_READ")
         raise RebarForbiddenError.new(key, klass)
       else
+        Rails.logger.warn("Tenant {t_id}: #{cap_base}_#{action} NOT DEFINED for #{klass} id #{key}")
         raise RebarNotFoundError.new(key, klass)
       end
     end
@@ -502,6 +503,7 @@ class ApplicationController < ActionController::Base
 
   def validate_read(t_id, cap_base, klass, key)
     unless validate_capability(t_id, "#{cap_base}_READ")
+      Rails.logger.warn("Tenant {t_id}: #{cap_base}_READ NOT DEFINED for #{klass} id #{key}")
       raise RebarNotFoundError.new(key, klass)
     end
   end
