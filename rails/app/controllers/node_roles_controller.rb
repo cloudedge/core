@@ -218,7 +218,10 @@ class NodeRolesController < ApplicationController
 
   # quick progress check
   def anneal
-    status = { :json => { "message" => "finished", "error" => 0, "transition" => 0, "scheduled" => 0, "other" => 0 }, :state => 200 }
+    status = { :json => { "message" => "finished" }, :state => 200 }
+    error = 0
+    transition = 0
+    scheduled = 0
 
     NodeRole.transaction do
       # get noderoles
@@ -232,24 +235,22 @@ class NodeRolesController < ApplicationController
             end
       # count each state
       nrs.each do |nr|
-        case nr.state
-        when NodeRole::ERROR
-          status[:json]["error"] += 1
-        when NodeRole::TRANSITION
-          status[:json]["transition"] += 1
-        when NodeRole::TODO
-          status[:json]["scheduled"] += 1
-        else
-          status[:json]["other"] += 1 
+        case 
+        when nr.error?
+          error += 1
+        when nr.transition?
+          transition += 1
+        when nr.todo?, nr.blocked?
+          scheduled += 1
         end
       end
       # change state depending on status
       status = case
-               when status[:json]["error"] > 0
+               when error > 0
                  { :json => { "message" => "failed" }, :status => 409 }
-               when status[:json]["transition"] > 0
+               when transition > 0
                  { :json => { "message" => "working" }, :status => 202 }
-               when status[:json]["scheduled"] > 0
+               when scheduled > 0
                  { :json => { "message" => "scheduled" }, :status => 202 }
                end
     end
