@@ -216,16 +216,40 @@ class NodeRolesController < ApplicationController
     render api_index NodeRole, @list
   end
 
+  # quick progress check
   def anneal
-    status = { :json => { "message" => "finished" }, :state => 200 }
+    status = { :json => { "message" => "finished", "error" => 0, "transition" => 0, "scheduled" => 0, "other" => 0 }, :state => 200 }
+
     NodeRole.transaction do
-      nrs = visible(model, cap("READ")).committed
+      # get noderoles
+      nrs = if params.key? :node_id
+              find_key_cap(Node, params[:node_id],cap("READ")).node_roles
+            elsif params.key? :deployment_id
+              find_key_cap(Deployment,params[:deployment_id], cap("READ","DEPLOYMENT")).
+                node_roles.visible(cap("READ"),@current_user.id)
+            else
+              visible(model,cap("READ"))
+            end
+      # count each state
+      nrs.each do |nr|
+        case nr.state
+        when NodeRole::ERROR
+          status[:json]["error"] += 1
+        when NodeRole::TRANSITION
+          status[:json]["transition"] += 1
+        when NodeRole::TODO
+          status[:json]["scheduled"] += 1
+        else
+          status[:json]["other"] += 1 
+        end
+      end
+      # change state depending on status
       status = case
-               when nrs.in_state(NodeRole::ERROR).count > 0
+               when status[:json]["error"] > 0
                  { :json => { "message" => "failed" }, :status => 409 }
-               when nrs.in_state(NodeRole::TRANSITION).count > 0
+               when status[:json]["transition"] > 0
                  { :json => { "message" => "working" }, :status => 202 }
-               when nrs.in_state(NodeRole::TODO).count > 0
+               when status[:json]["scheduled"] > 0
                  { :json => { "message" => "scheduled" }, :status => 202 }
                end
     end
